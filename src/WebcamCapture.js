@@ -1,29 +1,32 @@
-import React from "react";
-import Webcam from "react-webcam";
-import "./WebcamCapture.css"; // Import the CSS file
+import React, { useState, useEffect, useRef } from "react";
+import CaptchaSection from "./components/CaptchaSection";
+import VideoSection from "./components/VideoSection";
+import "./WebcamCapture.css";
 
 const videoWidth = 640;
 const videoHeight = 480;
 const squareSize = 200;
 
-let intervalId;
+
 
 function WebcamCapture() {
-  const webcamRef = React.useRef(null);
-  const [squarePosition, setSquarePosition] = React.useState({
+  const webcamRef = useRef(null);
+  const intervalId = useRef(null);
+  const [squarePosition, setSquarePosition] = useState({
     x: 0,
     y: 0,
     width: 200,
     height: 200,
   });
-  const [isCaptured, setIsCaptured] = React.useState(false);
-  const [imageSrc, setImageSrc] = React.useState(null);
-  const [watermarkSectors, setWatermarkSectors] = React.useState(null);
-  const [shapeName, setShapeName] = React.useState("");
-  const [selectedSectors, setSelectedSectors] = React.useState([]);
+  const [isCaptured, setIsCaptured] = useState(false);
+  const [imageSrc, setImageSrc] = useState(null);
+  const [watermarkSectors, setWatermarkSectors] = useState(null);
+  const [shapeName, setShapeName] = useState("");
+  const [selectedSectors, setSelectedSectors] = useState([]);
+  const [result, setResult] = useState("");
 
-  React.useEffect(() => {
-    intervalId = setInterval(() => {
+  useEffect(() => {
+    intervalId.current = setInterval(() => {
       setSquarePosition({
         x: Math.floor(Math.random() * (videoWidth - squareSize)),
         y: Math.floor(Math.random() * (videoHeight - squareSize)),
@@ -31,19 +34,19 @@ function WebcamCapture() {
         height: 200,
       });
     }, 2000);
-    return () => clearInterval(intervalId);
-  }, [videoWidth, videoHeight]);
+    return () => clearInterval(intervalId.current);
+  }, []);
 
   const handleContinue = () => {
     const imageSrc = webcamRef.current.getScreenshot();
     setImageSrc(imageSrc);
     setIsCaptured(true);
-    clearInterval(intervalId);
+    clearInterval(intervalId.current);
 
     // Divide square area into sectors and randomly assign watermarks to half of them
     const sectors = [];
-    const rows = 3;
-    const columns = 3;
+    const rows = 5;
+    const columns = 5;
     const sectorWidth = squarePosition.width / columns;
     const sectorHeight = squarePosition.height / rows;
     for (let i = 0; i < rows; i++) {
@@ -92,11 +95,9 @@ function WebcamCapture() {
       selectedShapes.length === 0 ||
       selectedShapes.length !== selectedSectors.length
     ) {
-      // setResult("fail");
-      console.log("fail");
+      setResult("failed");
     } else {
-      // setResult("pass");
-      console.log("pass");
+      setResult("passed");
     }
   };
 
@@ -129,84 +130,30 @@ function WebcamCapture() {
   return (
     <div className="webcam-container">
       <div className="section">
-        {!isCaptured && (
-          <>
-            <div className="webcam-section">
-              <h1 className="title">Take Selfie</h1>
-              <div className="webcam">
-                <Webcam
-                  audio={false}
-                  ref={webcamRef}
-                  screenshotFormat="image/jpeg"
-                />
-                {webcamRef.current !== null && (
-                  <div
-                    className="square"
-                    style={{
-                      position: "absolute",
-                      left: `${squarePosition.x}px`,
-                      top: `${squarePosition.y}px`,
-                      width: `${squareSize}px`,
-                      height: `${squareSize}px`,
-                    }}
-                  />
-                )}
-              </div>
-
-              <button className="continue-button" onClick={handleContinue}>
-                Continue
-              </button>
-            </div>
-          </>
+        {!isCaptured && result === "" && (
+          <VideoSection
+            title="Take Selfie"
+            onClickHandler={handleContinue}
+            btnTitle="Continue"
+            webcamRef={webcamRef}
+            squarePosition={squarePosition}
+            squareSize={squareSize}
+          />
         )}
-        {isCaptured && (
+        {isCaptured && result === "" && (
+          <CaptchaSection
+            title={`Select ${shapeName}s`}
+            onClickHandler={handleValidation}
+            btnTitle="Validate"
+            squarePosition={squarePosition}
+            watermarkSectors={watermarkSectors}
+            onSelectHandler={handleSelectSector}
+            imageSrc={imageSrc}
+          />
+        )}
+        {result !== "" && (
           <div className="webcam-section">
-            {shapeName && <h1 className="title">Select {shapeName}s</h1>}
-            <div className="webcam">
-              <img src={imageSrc} alt="Captured" />
-              <div
-                className="sectors-container"
-                style={{
-                  width: `${squarePosition.width}px`,
-                  height: `${squarePosition.height}px`,
-                  left: `${squarePosition.x}px`,
-                  top: `${squarePosition.y}px`,
-                }}
-              >
-                {watermarkSectors.map((s, i) => (
-                  <div
-                    key={i}
-                    className={`sector${s.hasWatermark ? " watermark" : ""}`}
-                    style={{
-                      left: `${s.x}px`,
-                      top: `${s.y}px`,
-                      width: `${s.width}px`,
-                      height: `${s.height}px`,
-                      backgroundColor: s.selected ? "red" : "",
-                    }}
-                    onClick={() => handleSelectSector(s)}
-                  >
-                    {s.hasWatermark && (
-                      <svg viewBox="0 0 100 100">
-                        {s.watermarkShape === "triangle" && (
-                          <polygon points="0,100 50,0 100,100" />
-                        )}
-                        {s.watermarkShape === "square" && (
-                          <rect x="0" y="0" width="100" height="100" />
-                        )}
-                        {s.watermarkShape === "circle" && (
-                          <circle cx="50" cy="50" r="50" />
-                        )}
-                      </svg>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button className="continue-button" onClick={handleValidation}>
-              Validate
-            </button>
+            <h1 className={`title ${result}`}>{result}</h1>
           </div>
         )}
       </div>
